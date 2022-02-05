@@ -10,10 +10,12 @@ class JokeList extends Component{
         super(props)
 
         this.state = {
-            jokes: [],
+            jokes: JSON.parse(window.localStorage.getItem("jokes") || "[]"),
+            loading: false,
         };
 
         this.handleVote = this.handleVote.bind(this);
+        this.handleClick = this.handleClick.bind(this);
     };
 
     static defaultProps = {
@@ -24,12 +26,23 @@ class JokeList extends Component{
         this.setState(
             st => ({
                 jokes: st.jokes.map(j => 
-                    j.id === id ? {...j, votes: j.votes + delta} : j)
-            })
-        )
+                    j.id === id ? {...j, votes: j.votes + delta} : j
+                    )
+            }),
+            () => 
+                window.localStorage.setItem("jokes", JSON.stringify(this.state.jokes))
+        );
     }
 
-    async componentDidMount(){
+    handleClick(){
+        this.setState({loading: true}, this.getJokes);
+    }
+
+    componentDidMount(){
+        if(this.state.jokes.length === 0) this.getJokes();
+    }
+    
+    async getJokes(){
         let jokes = [];
         while(jokes.length < this.props.numberJokestoGet){
             let res = await axios.get(API_URL, {
@@ -39,18 +52,30 @@ class JokeList extends Component{
             });
             jokes.push({id: uuidv4(), text: res.data.joke, votes: 0});
         }
-        this.setState({
-            jokes: jokes,
-        })
+        this.setState( st => ({
+            loading: false,
+            jokes: [...st.jokes, ...jokes],
+        }), () => 
+        window.localStorage.setItem("jokes", JSON.stringify(this.state.jokes))
+        );
+    
     };
 
     render(){
+        if(this.state.loading){
+            return(
+                <div className="JokeList-spinner">
+                    <i className="far fa-8x fa-laugh fa-spin"/>
+                    <h1 className="JokeList-title">loading...</h1>
+                </div>
+            )
+        }
         return(
             <div className="JokeList">
             <div className="JokeList-sidebar">
                 <h1 className="JokeList-title"><span>Dad</span> Jokes</h1>
                 <img src="https://assets.dryicons.com/uploads/icon/svg/8927/0eb14c71-38f2-433a-bfc8-23d9c99b3647.svg" alt="Emoji Laughing"></img>
-                <button className="JokeList-getmore">New Jokes</button>
+                <button className="JokeList-getmore" onClick={this.handleClick}>New Jokes</button>
             </div> 
                   <div className="JokeList-jokes">
                     {this.state.jokes.map(j => (
